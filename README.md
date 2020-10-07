@@ -10,7 +10,7 @@ The frontend Envoy is initally configured to run in a container with a listener 
 
 Each of the service instances are set up as a container running a simple static Flask app alongside an Envoy instance. This structure is analagous to a Kubernetes pod/container sidecar with shared network compartment archictecture. The service Envoy alongside each app is configured with a dynamic listener (that can be reloaded similar to the frontend Envoy) and static upstream cluster pointing to the Flask app. For demo purposes, the listener and admin endpoints for the service instance Envoys are made available via port mappings to the host.
 
-Self-signed certificates for TLS were generated with the [certstrap CLI](https://github.com/square/certstrap)
+Envoy configuration and certificates are mounted in the running service containers and can be copied/edited/moved on the host to do dynamic updates. Self-signed certificates for TLS were generated with the [certstrap CLI](https://github.com/square/certstrap)
 
 #### Requirements
 
