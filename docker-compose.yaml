@@ -7,12 +7,14 @@ services:
     networks:
       - envoymesh
     expose:
-      - "8000"
       - "8080"
       - "8081"
     ports:
       - "3000:8080"
       - "8081:8081"
+    volumes:
+      - ./front-envoy-logs:C:/logs
+      - ./front-envoy-config:C:/envoy-config
     depends_on:
       - dog-service
       - cat-service
@@ -25,6 +27,12 @@ services:
         - servicePath=./service1/
     expose:
         - "8000"
+    ports:
+      - "3001:8000"
+      - "8082:8081"
+    volumes:
+      - ./dog-envoy-logs:C:/logs
+      - ./service-envoy-config:C:/envoy-config
     networks:
       envoymesh:
         aliases:
@@ -40,6 +48,12 @@ services:
         - servicePath=./service2/
     expose:
         - "8000"
+    ports:
+      - "3002:8000"
+      - "8083:8081"
+    volumes:
+      - ./cat-envoy-logs:C:/logs
+      - ./service-envoy-config:C:/envoy-config
     networks:
       envoymesh:
         aliases:

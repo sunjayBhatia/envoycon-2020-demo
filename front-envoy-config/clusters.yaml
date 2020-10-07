@@ -1,0 +1,56 @@
+version_info: "0"
+resources:
+- '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+  name: service1
+  connect_timeout: 0.25s
+  type: strict_dns
+  lb_policy: round_robin
+  load_assignment:
+    cluster_name: service1
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: service1
+              port_value: 8000
+  transport_socket:
+    name: envoy.transport_sockets.tls
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+      common_tls_context:
+        tls_certificates:
+          certificate_chain:
+            filename: ./envoy-config/certs/backend.crt
+          private_key:
+            filename: ./envoy-config/certs/backend.key
+        validation_context:
+          trusted_ca:
+            filename: ./envoy-config/certs/service-ca.crt
+- '@type': type.googleapis.com/envoy.config.cluster.v3.Cluster
+  name: service2
+  connect_timeout: 0.25s
+  type: strict_dns
+  lb_policy: round_robin
+  load_assignment:
+    cluster_name: service2
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: service2
+              port_value: 8000 
+  transport_socket:
+    name: envoy.transport_sockets.tls
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+      common_tls_context:
+        tls_certificates:
+          certificate_chain:
+            filename: ./envoy-config/certs/backend.crt
+          private_key:
+            filename: ./envoy-config/certs/backend.key
+        validation_context:
+          trusted_ca:
+            filename: ./envoy-config/certs/service-ca.crt

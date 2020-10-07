@@ -1,0 +1,26 @@
+admin:
+  access_log_path: "./logs/envoy-access.log"
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 8081
+
+dynamic_resources:
+  lds_config:
+    path: ./envoy-config/listeners.yaml
+
+static_resources:
+  clusters:
+  - name: local_service
+    connect_timeout: 0.25s
+    type: strict_dns
+    lb_policy: round_robin
+    load_assignment:
+      cluster_name: local_service
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: 127.0.0.1
+                port_value: 8080
