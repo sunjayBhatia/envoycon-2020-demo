@@ -1,78 +1,98 @@
-## Envoy on Windows Containers
+This demo is a modified version of [this sample](https://github.com/davinci26/windows-envoy-samples), based on the [Envoy front proxy sandbox example](https://www.envoyproxy.io/docs/envoy/latest/start/sandboxes/front_proxy) presented at EnvoyCon 2020 in a [talk introducing Windows support in Envoy](https://sched.co/ecca)
 
-Recently, Envoy released the alpha version of the proxy for Windows containers. To see how to build Envoy Proxy from source on Windows and submit feedback please refer to this [document](https://docs.google.com/document/d/1-sj_LSX93MXPbZpbV8TYc_WgpdHhd4LvrceVx2vDrMg/edit?usp=sharing).
+In this demo we use Envoy and Docker composewith Windows Server Core containers to split traffic between two services, implement (m)TLS between Envoy instances, and demonstrate dynamic configuration reload. This setup is intended to mimic a potential common cloud-native deployment structure in Kubernetes or another container orchestrator.
 
-In this code we use Envoy Proxy and Windows Server Core containers to split the traffic between two services. The architecture that we are trying to achieve is the following:
+A diagram of the resulting deployment structure is below:
 
 ![Architecture](./assets/envoy-demo.png)
 
-## How to run the code
+The frontend Envoy is initally configured to run in a container with a listener on port 8000 (mapped to 3000 on the host) and two upstream clusters. The frontend listener is set up to serve TLS and the backend cluster configuration is set up to perform mTLS with the upstream services. The listener and cluster configuration are set up as a dynamic configuration files so they can be modified and reloaded on the fly. The Envoy admin API is made available as well.
 
-### Requirements
+Each of the service instances are set up as a container running a simple static Flask app alongside an Envoy instance. This structure is analagous to a Kubernetes pod/container sidecar with shared network compartment archictecture. The service Envoy alongside each app is configured with a dynamic listener (that can be reloaded similar to the frontend Envoy) and static upstream cluster pointing to the Flask app. For demo purposes, the listener and admin endpoints for the service instance Envoys are made available via port mappings to the host.
 
-- [ ] Docker for Windows
+Self-signed certificates for TLS were generated with the [certstrap CLI](https://github.com/square/certstrap)
+
+#### Requirements
+
+- [ ] Docker for Windows and Docker compose
 - [ ] Envoy proxy static executable built from source
-- [ ] A Windows (Server) machine running on version greater than 2019
+- [ ] A Windows (Server) instance capable of running LTS Windows 2019 container images (Windows OS version 10.0.17763.1457)
 
-If you try to run this code on a VM machine make sure that you have nested virtualization enabled and working.
+#### Run the demo
 
-### Setup
-
-1. Make sure that envoy-proxy is inside the local directory:
+1. Make sure that `envoy-proxy.exe` is inside the local directory:
 
 ``` Powershell
-PS D:\envoy-test> Test-Path .\envoy-static.exe
+PS C:\workspace\envoycon-2020-demo> Test-Path .\envoy-static.exe
 True
 ```
 
 2. Check that Docker is installed and running:
 
 ``` Powershell
-PS D:\envoy-test> docker version
-Client: Docker Engine - Community
- Azure integration  0.1.15
- Version:           19.03.12
+PS C:\workspace\envoycon-2020-demo> docker version
+Client: Docker Engine - Enterprise
+ Version:           19.03.11
  API version:       1.40
- Go version:        go1.13.10
- Git commit:        48a66213fe
- Built:             Mon Jun 22 15:43:18 2020
+ Go version:        go1.13.11
+ Git commit:        0da829ac52
+ Built:             06/26/2020 17:20:46
  OS/Arch:           windows/amd64
  Experimental:      false
 
-Server: Docker Engine - Community
+Server: Docker Engine - Enterprise (this node is not a swarm manager - check license status on a manager node)
  Engine:
-  Version:          19.03.12
+  Version:          19.03.11
   API version:      1.40 (minimum version 1.24)
-  Go version:       go1.13.10
-  Git commit:       48a66213fe
-  Built:            Mon Jun 22 15:57:30 2020
+  Go version:       go1.13.11
+  Git commit:       0da829ac52
+  Built:            06/26/2020 17:19:32
   OS/Arch:          windows/amd64
   Experimental:     false
 ```
 
-3. Get the network up and running:
+3. Ensure `docker-compose` is installed
 
-``` Powershell
-PS D:\envoy-test>docker-compose build --pull
-PS D:\envoy-test>docker-compose up -d
-PS D:\envoy-test> docker-compose ps
-          Name                        Command               State                            Ports
-----------------------------------------------------------------------------------------------------------------------------
-envoy-test_cat-service_1   cmd /S /C powershell ./ser ...   Up      8000/tcp, 8080/tcp
-envoy-test_dog-service_1   cmd /S /C powershell ./ser ...   Up      8000/tcp, 8080/tcp
-envoy-test_front-envoy_1   envoy-static.exe -c ./envo ...   Up      8000/tcp, 0.0.0.0:3000->8080/tcp, 0.0.0.0:8081->8081/tcp
+```Powershell
+PS C:\workspace\envoycon-2020-demo> Get-Command docker-compose
+
+CommandType     Name                                               Version    Source
+-----------     ----                                               -------    ------
+Application     docker-compose.exe                                 0.0.0.0    C:\Program Files\Docker\docker-compose.exe
 
 ```
 
-4. Test the network
+4. Build and start the services
 
-* Visit `localhost:8000` to see the pets website. If you refresh you should see the traffic going sometimes to service 1 and sometimes to service 2.
+``` Powershell
+PS C:\workspace\envoycon-2020-demo> docker-compose build --pull
+PS C:\workspace\envoycon-2020-demo> docker-compose up -d
+PS C:\workspace\envoycon-2020-demo> docker-compose ps
+PS C:\workspace\envoycon-2020-demo> docker-compose ps
+              Name                            Command               State                       Ports
+--------------------------------------------------------------------------------------------------------------------------
+envoycon-2020-demo_cat-service_1   cmd /S /C powershell ./ser ...   Up      0.0.0.0:3002->8000/tcp, 0.0.0.0:8083->8081/tcp
+envoycon-2020-demo_dog-service_1   cmd /S /C powershell ./ser ...   Up      0.0.0.0:3001->8000/tcp, 0.0.0.0:8082->8081/tcp
+envoycon-2020-demo_front-envoy_1   envoy-static.exe -c ./envo ...   Up      0.0.0.0:3000->8080/tcp, 0.0.0.0:8081->8081/tcp
+```
+
+5. Test the running services
+
+* Visit `localhost:3000` to see the pets website. If you refresh you should see the traffic going sometimes to service 1 and sometimes to service 2.
 * Visit `localhost:8081` to see Envoy admin page and the collected stats.
 
-### Usefull docker commands
+6. Perform a dynamic configuration reload
 
-1. Docker version:`docker version`
-1. List all containers: `docker-compose ps`
-1. Stop all running containers: `docker stop $(docker ps -a -q)`
-1. Remove all running containers: `docker rm $(docker-compose ps -a -q)`
-1. Interactive terminal `docker container exec -it <container name> powershell`
+* Copy one of the `listeners.yaml` or `clusters.yaml` files to a temporary location
+* Make some configuration modifications
+  * Update percentage of traffic routed to each backend
+  * Change certificates, validation context to test out rotation, mTLS
+* Move the temporary file back to the original name
+
+```Powershell
+PS C:\workspace\envoycon-2020-demo> cp .\service-envoy-config\listeners.yaml .\service-envoy-config\listeners.tmp.yaml
+...
+Configuration modifications
+...
+PS C:\workspace\envoycon-2020-demo> mv -Force .\service-envoy-config\listeners.tmp.yaml .\service-envoy-config\listeners.yaml
+```
